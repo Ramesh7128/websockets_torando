@@ -7,13 +7,13 @@ connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
 channel = connection.channel()
 
-# web_soc_handler = WSHandler(tornado.websocket.WebSocketHandler)
+web_soc_handler = WSHandler(tornado.websocket.WebSocketHandler)
 
 channel.queue_declare(queue='hello')
 
 def callback(ch, method, properties, body):
     print(" [x] Received %r" % body)
-    new_body = "returned from pika: %s" % body
+    # new_body = "returned from pika: %s" % body
     # web_soc_handler.pika_push_message(new_body)
 
 channel.basic_consume(callback,

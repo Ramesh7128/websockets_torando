@@ -4,31 +4,34 @@ import tornado.ioloop
 import tornado.web
 import socket
 import os
+import json
 
 # pika
 import pika
 import tornado
 import tornado.websocket as websocket
 from pika.adapters.tornado_connection import TornadoConnection
-
+import time
 # import tornado.template
 
 '''
 simple Websocket Echo server that uses the Tornado websocket handler.
 ''' 
 
-
+liveWebSockets = set()
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('index.html')
 
 
 class WSHandler(tornado.websocket.WebSocketHandler):
-    # client = []
-
-    def open(self):
+    clients = []
+    def open(self, name):
         # WSHandler.clients.append(self)
-        self.application.pc.add_event_listener(self)
+        # liveWebSockets.add(self)
+        self.id = name
+        self.clients.append(self)
+        # self.application.pc.add_event_listener(self)
         print 'new connection'
       
     def on_message(self, message):
@@ -42,16 +45,40 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         connection = pika.BlockingConnection(pika.ConnectionParameters(
                        'localhost'))
         channel = connection.channel()
+        # clients.append(self)
         channel.queue_declare(queue='hello')
+        # print dir(self)
+        message_rabbit_mq = {
+                                'web_socket': self.id,
+                                'message': message
+                            }
+        message_rabbit_mq = json.dumps(message_rabbit_mq)                    
         channel.basic_publish(exchange='',
                               routing_key='hello',
-                              body=message)
-        print 'Hello World!'
+                              body=message_rabbit_mq)
         connection.close()
 
-        # self.write_message('%s' % message[::-1])
+        # pika receving message
+        connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+        channel = connection.channel()
 
-        self.write_message('test')
+        channel.queue_declare(queue='hello')
+
+        def callback(ch, method, properties, body):
+            print(" [x] Received %r" % body)
+            self.write_message(body)
+            time.sleep(4)
+    
+        channel.basic_consume(callback,
+                        queue='hello',
+                        no_ack=True)
+
+        channel.start_consuming()
+
+        self.write_message("this is test")
+        
+
         
     
     def pika_push_message(self, message):
@@ -61,7 +88,8 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
     
     def on_close(self):
-        self.application.pc.remove_event_listener(self)
+        # self.application.pc.remove_event_listener(self)
+        self.clients.remove(self)
         print 'connection closed'
  
     def check_origin(self, origin):
@@ -79,7 +107,6 @@ class PikaClient(object):
         self.connecting = False
         self.connection = None
         self.channel = None
- 
         self.event_listeners = set([])
  
     def connect(self):
@@ -111,7 +138,7 @@ class PikaClient(object):
     def on_channel_open(self, channel):
         # pika.log.info('PikaClient: Channel open, Declaring exchange')
         self.channel = channel
-        self.channel.queue_declare(queue='hello')
+        # self.channel.queue_declare(queue='hello')
         # declare exchanges, which in turn, declare
         # queues, and bind exchange to queues
  
@@ -146,23 +173,23 @@ class PikaClient(object):
  
 application = tornado.web.Application([
     (r'/', MainHandler),
-    (r'/ws', WSHandler),
+    (r'/ws/(.*)', WSHandler),
 ])
  
  
 if __name__ == "__main__":
-    # http_server = tornado.httpserver.HTTPServer(application)
-    # http_server.listen(8888)
-    # myIP = socket.gethostbyname(socket.gethostname())
-    # print '*** Websocket Server Started at %s***' % myIP
-    # tornado.ioloop.IOLoop.instance().start()
+    http_server = tornado.httpserver.HTTPServer(application)
+    http_server.listen(8888)
+    myIP = socket.gethostbyname(socket.gethostname())
+    print '*** Websocket Server Started at %s***' % myIP
+    tornado.ioloop.IOLoop.instance().start()
 
     # pika.log.setup(color=True)
-    io_loop = tornado.ioloop.IOLoop.instance()
-    # PikaClient is our rabbitmq consumer
-    pc = PikaClient(io_loop)
-    application.pc = pc
-    application.pc.connect()
+    # io_loop = tornado.ioloop.IOLoop.instance()
+    # # PikaClient is our rabbitmq consumer
+    # pc = PikaClient(io_loop)
+    # application.pc = pc
+    # application.pc.connect()
  
-    application.listen(8888)
-    io_loop.start()
+    # application.listen(8888)
+    # io_loop.start()
