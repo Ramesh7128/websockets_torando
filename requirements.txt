@@ -1,0 +1,9 @@
+SQLAlchemy==1.1.4
+argparse==1.2.1
+backports-abc==0.5
+certifi==2016.9.26
+pika==0.10.0
+singledispatch==3.4.0.3
+six==1.10.0
+tornado==4.4.2
+wsgiref==0.1.2
