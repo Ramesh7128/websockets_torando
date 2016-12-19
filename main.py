@@ -5,6 +5,7 @@ import tornado.web
 import socket
 import os
 import json
+from tornado import gen
 
 # pika
 import pika
@@ -33,13 +34,15 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         self.clients.append(self)
         # self.application.pc.add_event_listener(self)
         print 'new connection'
+
+
+    # def pika_receive():
+    #     import threading
       
     def on_message(self, message):
         print 'message received:  %s' % message
         # Reverse Message and send it back
         print 'sending back message: %s' % message[::-1]
-        
-        
         # pika sending message
         import pika
         connection = pika.BlockingConnection(pika.ConnectionParameters(
@@ -62,31 +65,25 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
         channel = connection.channel()
-
         channel.queue_declare(queue='hello')
 
         def callback(ch, method, properties, body):
             print(" [x] Received %r" % body)
             self.write_message(body)
             time.sleep(4)
+            body_obj =  json.loads(body)
+            if 'message' in body:
+                if body_obj['message'] == "crack":
+                    channel.stop_consuming()
     
         channel.basic_consume(callback,
                         queue='hello',
                         no_ack=True)
 
         channel.start_consuming()
-
-        self.write_message("this is test")
+        self.write_message("closed reference")
         
 
-        
-    
-    def pika_push_message(self, message):
-        """function to push messages to clients when a call gets made from the pika"""
-        print 'message from pika: %s' % message
-        self.write_message('%s' % message)
-
-    
     def on_close(self):
         # self.application.pc.remove_event_listener(self)
         self.clients.remove(self)
@@ -102,7 +99,6 @@ class PikaClient(object):
     def __init__(self, io_loop):
         print 'PikaClient: __init__'
         self.io_loop = io_loop
- 
         self.connected = False
         self.connecting = False
         self.connection = None
@@ -137,7 +133,9 @@ class PikaClient(object):
  
     def on_channel_open(self, channel):
         # pika.log.info('PikaClient: Channel open, Declaring exchange')
+        print "Testdsfsd"
         self.channel = channel
+        # self.channel.queue_declare(,queue='hello')
         # self.channel.queue_declare(queue='hello')
         # declare exchanges, which in turn, declare
         # queues, and bind exchange to queues
@@ -148,8 +146,9 @@ class PikaClient(object):
  
     def on_message(self, channel, method, header, body):
         # pika.log.info('PikaClient: message received: %s' % body)
-        print "on message"
-        self.notify_listeners(event_factory(body))
+        print "on messageksdnfk"    
+        # self.notify_listeners(event_factory(body))
+        self.write_message(body)
  
     def notify_listeners(self, event_obj):
         # here we assume the message the sourcing app

@@ -7,8 +7,6 @@ connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
 channel = connection.channel()
 
-web_soc_handler = WSHandler(tornado.websocket.WebSocketHandler)
-
 channel.queue_declare(queue='hello')
 
 def callback(ch, method, properties, body):
